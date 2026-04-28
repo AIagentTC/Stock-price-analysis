@@ -34,10 +34,10 @@ symbols = user_data.get("symbols", [])
 extra_news = user_data.get("extra_news", [])
 
 # =====================================================
-# 分離コンテナ
+# コンテナ分離
 # =====================================================
-result_only = []          # 軽量（UI用）
-analysis_results = []    # 株価＋分析（可視化用）
+result_only = []          # ① 3ヶ月データ＋指標
+analysis_today = []       # ② 今日の分析＋当日株価
 
 # =====================================================
 # 株分析
@@ -64,22 +64,27 @@ for symbol in symbols:
             continue
 
         # -------------------------
-        # テクニカル指標
+        # テクニカル指標（3ヶ月データベース）
         # -------------------------
         rsi = RSIIndicator(close).rsi().iloc[-1]
         macd = MACD(close).macd_diff().iloc[-1]
 
-        # -------------------------
-        # チャートデータ（分析専用）
-        # -------------------------
-        chart_data = [
-            {"date": str(i.date()), "close": float(c)}
-            for i, c in zip(df.index[-len(close):], close)
-        ]
+        # =====================================================
+        # ① RESULT用（3ヶ月データ＋指標のみ）
+        # =====================================================
+        result_only.append({
+            "symbol": symbol,
+            "rsi": float(rsi),
+            "macd": float(macd),
+            "price_history": [
+                {"date": str(i.date()), "close": float(c)}
+                for i, c in zip(df.index[-len(close):], close)
+            ]
+        })
 
-        # -------------------------
-        # AIプロンプト
-        # -------------------------
+        # =====================================================
+        # AIプロンプト（3ヶ月データを元に分析）
+        # =====================================================
         prompt = f"""
 あなたはプロの株式アナリストです。
 
@@ -113,66 +118,55 @@ MACD差分: {macd}
         parsed = json.loads(content)
 
         # =====================================================
-        # ① 軽量結果（result.json）
+        # ② ANALYSIS TODAY（軽量＋当日価格）
         # =====================================================
-        result_only.append({
-            "symbol": symbol,
-            "decision": parsed.get("decision", ""),
-            "reason": parsed.get("reason", ""),
-            "education": parsed.get("education", "")
-        })
-
-        # =====================================================
-        # ② 分析用（株価＋結果）
-        # =====================================================
-        analysis_results.append({
+        analysis_today.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
             "symbol": symbol,
             "decision": parsed.get("decision", ""),
             "reason": parsed.get("reason", ""),
             "education": parsed.get("education", ""),
-            "chart": chart_data
+            "today_price": float(close.iloc[-1])  # 最新価格のみ
         })
 
     except Exception as e:
+
         result_only.append({
             "symbol": symbol,
-            "decision": "エラー",
-            "reason": str(e),
-            "education": ""
+            "error": str(e)
         })
 
-        analysis_results.append({
+        analysis_today.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
             "symbol": symbol,
             "decision": "エラー",
             "reason": str(e),
             "education": "",
-            "chart": []
+            "today_price": None
         })
 
 # =====================================================
-# ① result.json（軽量）
+# ① result.json（3ヶ月データ＋指標）
 # =====================================================
 with open("result.json", "w", encoding="utf-8") as f:
     json.dump(result_only, f, ensure_ascii=False, indent=2)
 
 # =====================================================
-# ② analysis_today.json（当日スナップショット）
+# ② analysis_today.json（当日結果のみ）
 # =====================================================
-analysis_today = {
-    "date": datetime.now().strftime("%Y-%m-%d"),
-    "results": analysis_results
-}
-
 with open("analysis_today.json", "w", encoding="utf-8") as f:
     json.dump(analysis_today, f, ensure_ascii=False, indent=2)
 
 # =====================================================
-# ③ analysis_history.json（履歴蓄積）
+# ③ analysis_history.json（蓄積）
 # =====================================================
 history_file = "analysis_history.json"
 history = safe_json_load(history_file)
 
-history.append(analysis_today)
+history.append({
+    "date": datetime.now().strftime("%Y-%m-%d"),
+    "results": analysis_today
+})
 
 with open(history_file, "w", encoding="utf-8") as f:
     json.dump(history, f, ensure_ascii=False, indent=2)
