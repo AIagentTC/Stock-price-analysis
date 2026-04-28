@@ -126,7 +126,7 @@ MACD差分: {macd}
             "decision": parsed.get("decision", ""),
             "reason": parsed.get("reason", ""),
             "education": parsed.get("education", ""),
-            "today_price": float(close.iloc[-1])  # 最新価格のみ
+            "today_price": float(close.iloc[-1]) if len(close) > 0 else None
         })
 
     except Exception as e:
@@ -155,7 +155,10 @@ with open("result.json", "w", encoding="utf-8") as f:
 # ② analysis_today.json（当日結果のみ）
 # =====================================================
 with open("analysis_today.json", "w", encoding="utf-8") as f:
-    json.dump(analysis_today, f, ensure_ascii=False, indent=2)
+    json.dump({
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "results": analysis_today
+    }, f, ensure_ascii=False, indent=2)
 
 # =====================================================
 # ③ analysis_history.json（蓄積）
