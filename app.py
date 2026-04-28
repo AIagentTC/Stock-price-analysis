@@ -90,6 +90,9 @@ with tab2:
         with open("analysis_today.json", "r", encoding="utf-8") as f:
             analysis = json.load(f)
 
+        if isinstance(analysis, list):
+            analysis = analysis[-1] if analysis else {}
+            
         results = analysis.get("results", [])
 
         if not results:
