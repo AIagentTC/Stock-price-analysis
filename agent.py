@@ -23,18 +23,27 @@ for symbol in symbols:
 
     try:
         df = yf.download(symbol, period="3mo")
-        if df.empty:
-            continue
+if df.empty:
+    continue
 
-        close = df["Close"].squeeze().astype(float)
-　　　　
-        rsi = RSIIndicator(close).rsi().iloc[-1]
+close = df["Close"]
+close = close.dropna()
+close = pd.to_numeric(close, errors="coerce")
+close = close.dropna()
+
+if len(close) < 30:
+    continue
+
+try:
+    rsi = RSIIndicator(close).rsi().iloc[-1]
     macd = MACD(close).macd_diff().iloc[-1]
+except Exception:
+    continue
 
-    chart_data = [
-        {"date": str(i.date()), "close": float(c)}
-        for i, c in zip(df.index, close)
-    ]
+chart_data = [
+    {"date": str(i.date()), "close": float(c)}
+    for i, c in zip(df.index, close)
+]
 
         prompt = f"""
 あなたはプロの株式アナリストです。
