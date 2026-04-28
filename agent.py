@@ -98,7 +98,11 @@ MACD差分: {macd}
         content = res.choices[0].message.content
         content = content.strip().replace("```json", "").replace("```", "")
 
+        print("RAW RESPONSE:")
+        print(content)
+        print("PARSE START")
         parsed = json.loads(content)
+        print("PARSE OK")
 
         results.append({
             "symbol": symbol,
