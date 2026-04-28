@@ -26,13 +26,15 @@ for symbol in symbols:
         if df.empty:
             continue
 
-        rsi = RSIIndicator(df["Close"]).rsi().iloc[-1]
-        macd = MACD(df["Close"]).macd_diff().iloc[-1]
+        close = df["Close"].squeeze().astype(float)
+　　　　
+        rsi = RSIIndicator(close).rsi().iloc[-1]
+    macd = MACD(close).macd_diff().iloc[-1]
 
-        chart_data = [
-            {"date": str(i.date()), "close": float(c)}
-            for i, c in zip(df.index, df["Close"])
-        ]
+    chart_data = [
+        {"date": str(i.date()), "close": float(c)}
+        for i, c in zip(df.index, close)
+    ]
 
         prompt = f"""
 あなたはプロの株式アナリストです。
