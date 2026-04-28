@@ -12,7 +12,7 @@ with open("data.json", "r", encoding="utf-8") as f:
     user_data = json.load(f)
 
 with open("feedback.json", "r", encoding="utf-8") as f:
-    feedback = json.load(f)["feedback"]
+    feedback = json.load(f).get("feedback", "")
 
 symbols = user_data.get("symbols", [])
 extra_news = user_data.get("extra_news", [])
@@ -24,28 +24,37 @@ for symbol in symbols:
     try:
         df = yf.download(symbol, period="3mo")
 
-        if df.empty:
+        if df is None or df.empty:
             continue
 
+        # ===== 🔥 Closeを完全に1次元化（ここが最重要） =====
         close = df["Close"]
-        close = close.dropna()
-        close = pd.to_numeric(close, errors="coerce")
-        close = close.dropna()
 
+        # DataFrame化対策
+        if isinstance(close, pd.DataFrame):
+            close = close.iloc[:, 0]
+
+        close = pd.to_numeric(close, errors="coerce")
+        close = close.dropna().squeeze()
+
+        # データ不足ガード
         if len(close) < 30:
             continue
 
-        try:
-            rsi = RSIIndicator(close).rsi().iloc[-1]
-            macd = MACD(close).macd_diff().iloc[-1]
-        except Exception:
-            continue
+        # ===== テクニカル指標 =====
+        rsi_series = RSIIndicator(close)
+        macd_series = MACD(close)
 
+        rsi = rsi_series.rsi().iloc[-1]
+        macd = macd_series.macd_diff().iloc[-1]
+
+        # ===== チャート =====
         chart_data = [
             {"date": str(i.date()), "close": float(c)}
-            for i, c in zip(df.index, close)
+            for i, c in zip(df.index[-len(close):], close)
         ]
 
+        # ===== AIプロンプト =====
         prompt = f"""
 あなたはプロの株式アナリストです。
 
