@@ -9,6 +9,21 @@ from datetime import datetime
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
+# =====================================================
+# 🔧 安全JSONロード（追加）
+# =====================================================
+def safe_json_load(path):
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return []
+
+# =====================================================
+# データ読み込み
+# =====================================================
 with open("data.json", "r", encoding="utf-8") as f:
     user_data = json.load(f)
 
@@ -20,6 +35,9 @@ extra_news = user_data.get("extra_news", [])
 
 results = []
 
+# =====================================================
+# 株分析
+# =====================================================
 for symbol in symbols:
 
     try:
@@ -28,7 +46,7 @@ for symbol in symbols:
         if df is None or df.empty:
             continue
 
-        # ===== Closeの安全化 =====
+        # Close安全化
         close = df["Close"]
 
         if isinstance(close, pd.DataFrame):
@@ -39,17 +57,17 @@ for symbol in symbols:
         if len(close) < 30:
             continue
 
-        # ===== 指標 =====
+        # 指標
         rsi = RSIIndicator(close).rsi().iloc[-1]
         macd = MACD(close).macd_diff().iloc[-1]
 
-        # ===== チャート =====
+        # チャート
         chart_data = [
             {"date": str(i.date()), "close": float(c)}
             for i, c in zip(df.index[-len(close):], close)
         ]
 
-        # ===== AI =====
+        # AI
         prompt = f"""
 あなたはプロの株式アナリストです。
 
@@ -100,13 +118,13 @@ MACD差分: {macd}
         })
 
 # =====================================================
-# ① Result（最新株価分析結果）
+# ① Result（最新）
 # =====================================================
 with open("result.json", "w", encoding="utf-8") as f:
     json.dump(results, f, ensure_ascii=False, indent=2)
 
 # =====================================================
-# ② Analysis Today（最新分析スナップショット）
+# ② Analysis Today
 # =====================================================
 analysis_today = {
     "date": datetime.now().strftime("%Y-%m-%d"),
@@ -117,15 +135,11 @@ with open("analysis_today.json", "w", encoding="utf-8") as f:
     json.dump(analysis_today, f, ensure_ascii=False, indent=2)
 
 # =====================================================
-# ③ Analysis History（履歴に追記）
+# ③ Analysis History（安全追記）
 # =====================================================
 history_file = "analysis_history.json"
 
-if os.path.exists(history_file):
-    with open(history_file, "r", encoding="utf-8") as f:
-        history = json.load(f)
-else:
-    history = []
+history = safe_json_load(history_file)
 
 history.append(analysis_today)
 
