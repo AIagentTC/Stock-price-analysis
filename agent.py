@@ -8,31 +8,33 @@ import os
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-# ---------- データ読み込み ----------
 with open("data.json", "r", encoding="utf-8") as f:
     user_data = json.load(f)
 
 with open("feedback.json", "r", encoding="utf-8") as f:
     feedback = json.load(f)["feedback"]
 
-symbols = user_data["symbols"]
-extra_news = user_data["extra_news"]
+symbols = user_data.get("symbols", [])
+extra_news = user_data.get("extra_news", [])
 
 results = []
 
 for symbol in symbols:
-    df = yf.download(symbol, period="3mo")
-    df.dropna(inplace=True)
 
-    rsi = RSIIndicator(df["Close"]).rsi().iloc[-1]
-    macd = MACD(df["Close"]).macd_diff().iloc[-1]
+    try:
+        df = yf.download(symbol, period="3mo")
+        if df.empty:
+            continue
 
-    chart_data = [
-        {"date": str(i.date()), "close": float(c)}
-        for i, c in zip(df.index, df["Close"])
-    ]
+        rsi = RSIIndicator(df["Close"]).rsi().iloc[-1]
+        macd = MACD(df["Close"]).macd_diff().iloc[-1]
 
-    prompt = f"""
+        chart_data = [
+            {"date": str(i.date()), "close": float(c)}
+            for i, c in zip(df.index, df["Close"])
+        ]
+
+        prompt = f"""
 あなたはプロの株式アナリストです。
 
 銘柄: {symbol}
@@ -46,25 +48,34 @@ MACD差分: {macd}
 {feedback}
 
 以下を日本語で出力してください:
-1. 売るべきか保有か買い増しかの結論
-2. テクニカル＋ニュースの理由
-3. 初心者向けの学習ポイント
+1. 売るべきか保有か買い増しか
+2. 理由
+3. 学習ポイント
 """
 
-    res = client.chat.completions.create(
-        model="gpt-4.1",
-        messages=[{"role": "user", "content": prompt}],
-    )
+        res = client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[{"role": "user", "content": prompt}],
+        )
 
-    text = res.choices[0].message.content.split("\n")
+        text = res.choices[0].message.content.split("\n")
 
-    results.append({
-        "symbol": symbol,
-        "decision": text[0],
-        "reason": text[1] if len(text) > 1 else "",
-        "education": text[2] if len(text) > 2 else "",
-        "chart": chart_data
-    })
+        results.append({
+            "symbol": symbol,
+            "decision": text[0] if len(text) > 0 else "",
+            "reason": text[1] if len(text) > 1 else "",
+            "education": text[2] if len(text) > 2 else "",
+            "chart": chart_data
+        })
+
+    except Exception as e:
+        results.append({
+            "symbol": symbol,
+            "decision": "エラー",
+            "reason": str(e),
+            "education": "",
+            "chart": []
+        })
 
 with open("result.json", "w", encoding="utf-8") as f:
     json.dump(results, f, ensure_ascii=False, indent=2)
