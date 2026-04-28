@@ -68,10 +68,13 @@ MACD差分: {macd}
 過去フィードバック:
 {feedback}
 
-以下を日本語で出力してください:
-1. 売るべきか保有か買い増しか
-2. 理由
-3. 学習ポイント
+以下をJSON形式で出力してください：
+
+{{
+  "decision": "売る/保有/買い増しのいずれか",
+  "reason": "理由",
+  "education": "学習ポイント"
+}}
 """
 
         res = client.chat.completions.create(
@@ -79,13 +82,14 @@ MACD差分: {macd}
             messages=[{"role": "user", "content": prompt}],
         )
 
-        text = res.choices[0].message.content.split("\n")
+        content = res.choices[0].message.content
+        parsed = json.loads(content)
 
         results.append({
             "symbol": symbol,
-            "decision": text[0] if len(text) > 0 else "",
-            "reason": text[1] if len(text) > 1 else "",
-            "education": text[2] if len(text) > 2 else "",
+            "decision": parsed.get("decision", ""),
+            "reason": parsed.get("reason", ""),
+            "education": parsed.get("education", ""),
             "chart": chart_data
         })
 
