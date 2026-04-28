@@ -2,14 +2,18 @@ name: Run Stock Agent
 
 on:
   schedule:
-    - cron: '0 22 * * *' # 日本時間 朝7時
+    - cron: '0 22 * * *'  # 日本時間 朝7時
   workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
