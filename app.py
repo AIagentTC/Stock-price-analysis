@@ -66,23 +66,57 @@ if st.button("保存"):
     save_data(data, sha)
     st.success("保存しました")
 
-# ---------- 結果表示（変更なし） ----------
-st.header("AI分析結果")
+# ---------- 結果表示（analysis_today使用） ----------
+st.header("📊 今日のAI分析一覧")
 
-if os.path.exists("result.json"):
-    results = json.load(open("result.json", "r", encoding="utf-8"))
+if os.path.exists("analysis_today.json"):
+    with open("analysis_today.json", "r", encoding="utf-8") as f:
+        analysis = json.load(f)
+
+    st.subheader(f"日付: {analysis.get('date', '')}")
+
+    results = analysis.get("results", [])
+
+    # テーブル表示用
+    table_data = []
+
     for r in results:
-        st.subheader(r["symbol"])
-        st.write("### 結論")
-        st.write(r["decision"])
-        st.write("### 理由")
-        st.write(r["reason"])
-        st.write("### 学習")
-        st.info(r["education"])
+        table_data.append({
+            "銘柄": r.get("symbol", ""),
+            "判断": r.get("decision", ""),
+            "理由": r.get("reason", ""),
+            "学習ポイント": r.get("education", ""),
+            "現在株価": r.get("today_price", "")
+        })
 
-        df = pd.DataFrame(r["chart"])
-        st.line_chart(df.set_index("date")["close"])
+    df_table = pd.DataFrame(table_data)
+    st.dataframe(df_table, use_container_width=True)
 
+    st.divider()
+
+    # 個別詳細表示
+    st.subheader("📈 詳細チャート")
+
+    for r in results:
+        st.markdown(f"### {r['symbol']}")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write("**判断**")
+            st.success(r["decision"])
+
+            st.write("**理由**")
+            st.write(r["reason"])
+
+        with col2:
+            st.write("**学習ポイント**")
+            st.info(r["education"])
+
+            st.write("**現在価格**")
+            st.write(r.get("today_price", ""))
+
+        st.divider()
 # ---------- フィードバック ----------
 st.header("フィードバック")
 fb = st.text_area("実際どうでしたか？")
