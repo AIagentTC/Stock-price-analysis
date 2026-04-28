@@ -86,34 +86,31 @@ with tab1:
 with tab2:
     st.header("AI分析結果（本日）")
 
-    if os.path.exists("analysis_today.json"):
-        with open("analysis_today.json", "r", encoding="utf-8") as f:
-            analysis = json.load(f)
+    if not os.path.exists("analysis_today.json"):
+        st.warning("analysis_today.json が存在しません（GitHubに未反映の可能性）")
+        st.stop()
 
-        if isinstance(analysis, list):
-            analysis = analysis[-1] if analysis else {}
-            
-        results = analysis.get("results", [])
+    with open("analysis_today.json", "r", encoding="utf-8") as f:
+        analysis = json.load(f)
 
-        if not results:
-            st.info("本日の分析データはまだありません")
-        else:
-            for r in results:
-                st.subheader(r["symbol"])
+    # list / dict 両対応
+    if isinstance(analysis, list):
+        analysis = analysis[-1] if analysis else {}
 
-                col1, col2 = st.columns(2)
+    results = analysis.get("results")
 
-                with col1:
-                    st.write("### 結論")
-                    st.write(r.get("decision", ""))
+    # 🔥 ここが重要（None対策）
+    if not results:
+        st.warning("analysis_today.json は存在しますが results が空です")
+        st.write(analysis)   # デバッグ表示
+        st.stop()
 
-                    st.write("### 理由")
-                    st.write(r.get("reason", ""))
+    for r in results:
+        st.subheader(r.get("symbol", "不明"))
+        st.write("結論:", r.get("decision", ""))
+        st.write("理由:", r.get("reason", ""))
+        st.info(r.get("education", ""))
 
-                with col2:
-                    st.write("### 学習ポイント")
-                    st.info(r.get("education", ""))
-
-                if "chart" in r and r["chart"]:
-                    df = pd.DataFrame(r["chart"])
-                    st.line_chart(df.set_index("date")["close"])
+        if r.get("chart"):
+            df = pd.DataFrame(r["chart"])
+            st.line_chart(df.set_index("date")["close"])
