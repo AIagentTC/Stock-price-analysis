@@ -29,6 +29,6 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add result.json
+          git add result.json analysis_today.json analysis_history.json
           git commit -m "update result" || echo "no changes"
           git push
