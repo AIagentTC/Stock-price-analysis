@@ -2,7 +2,7 @@
   {
     "symbol": "7203.T",
     "decision": "エラー",
-    "reason": "Data must be 1-dimensional, got ndarray of shape (62, 1) instead",
+    "reason": "arg must be a list, tuple, 1-d array, or Series",
     "education": "",
     "chart": []
   }
