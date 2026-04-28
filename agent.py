@@ -10,7 +10,7 @@ from datetime import datetime
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 # =====================================================
-# 🔧 安全JSONロード（追加）
+# 安全JSONロード
 # =====================================================
 def safe_json_load(path):
     if not os.path.exists(path):
@@ -33,7 +33,11 @@ with open("feedback.json", "r", encoding="utf-8") as f:
 symbols = user_data.get("symbols", [])
 extra_news = user_data.get("extra_news", [])
 
-results = []
+# =====================================================
+# 分離コンテナ
+# =====================================================
+result_only = []          # 軽量（UI用）
+analysis_results = []    # 株価＋分析（可視化用）
 
 # =====================================================
 # 株分析
@@ -46,7 +50,9 @@ for symbol in symbols:
         if df is None or df.empty:
             continue
 
+        # -------------------------
         # Close安全化
+        # -------------------------
         close = df["Close"]
 
         if isinstance(close, pd.DataFrame):
@@ -57,17 +63,23 @@ for symbol in symbols:
         if len(close) < 30:
             continue
 
-        # 指標
+        # -------------------------
+        # テクニカル指標
+        # -------------------------
         rsi = RSIIndicator(close).rsi().iloc[-1]
         macd = MACD(close).macd_diff().iloc[-1]
 
-        # チャート
+        # -------------------------
+        # チャートデータ（分析専用）
+        # -------------------------
         chart_data = [
             {"date": str(i.date()), "close": float(c)}
             for i, c in zip(df.index[-len(close):], close)
         ]
 
-        # AI
+        # -------------------------
+        # AIプロンプト
+        # -------------------------
         prompt = f"""
 あなたはプロの株式アナリストです。
 
@@ -95,16 +107,25 @@ MACD差分: {macd}
             messages=[{"role": "user", "content": prompt}],
         )
 
-        content = res.choices[0].message.content
-        content = content.strip().replace("```json", "").replace("```", "")
+        content = res.choices[0].message.content.strip()
+        content = content.replace("```json", "").replace("```", "")
 
-        print("RAW RESPONSE:")
-        print(content)
-        print("PARSE START")
         parsed = json.loads(content)
-        print("PARSE OK")
 
-        results.append({
+        # =====================================================
+        # ① 軽量結果（result.json）
+        # =====================================================
+        result_only.append({
+            "symbol": symbol,
+            "decision": parsed.get("decision", ""),
+            "reason": parsed.get("reason", ""),
+            "education": parsed.get("education", "")
+        })
+
+        # =====================================================
+        # ② 分析用（株価＋結果）
+        # =====================================================
+        analysis_results.append({
             "symbol": symbol,
             "decision": parsed.get("decision", ""),
             "reason": parsed.get("reason", ""),
@@ -113,7 +134,14 @@ MACD差分: {macd}
         })
 
     except Exception as e:
-        results.append({
+        result_only.append({
+            "symbol": symbol,
+            "decision": "エラー",
+            "reason": str(e),
+            "education": ""
+        })
+
+        analysis_results.append({
             "symbol": symbol,
             "decision": "エラー",
             "reason": str(e),
@@ -122,27 +150,26 @@ MACD差分: {macd}
         })
 
 # =====================================================
-# ① Result（最新）
+# ① result.json（軽量）
 # =====================================================
 with open("result.json", "w", encoding="utf-8") as f:
-    json.dump(results, f, ensure_ascii=False, indent=2)
+    json.dump(result_only, f, ensure_ascii=False, indent=2)
 
 # =====================================================
-# ② Analysis Today
+# ② analysis_today.json（当日スナップショット）
 # =====================================================
 analysis_today = {
     "date": datetime.now().strftime("%Y-%m-%d"),
-    "results": results
+    "results": analysis_results
 }
 
 with open("analysis_today.json", "w", encoding="utf-8") as f:
     json.dump(analysis_today, f, ensure_ascii=False, indent=2)
 
 # =====================================================
-# ③ Analysis History（安全追記）
+# ③ analysis_history.json（履歴蓄積）
 # =====================================================
 history_file = "analysis_history.json"
-
 history = safe_json_load(history_file)
 
 history.append(analysis_today)
