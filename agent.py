@@ -121,7 +121,6 @@ MACD差分: {macd}
         # ② ANALYSIS TODAY（軽量＋当日価格）
         # =====================================================
         analysis_today.append({
-            "date": datetime.now().strftime("%Y-%m-%d"),
             "symbol": symbol,
             "decision": parsed.get("decision", ""),
             "reason": parsed.get("reason", ""),
