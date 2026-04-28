@@ -165,7 +165,7 @@ history = safe_json_load(history_file)
 
 history.append({
     "date": datetime.now().strftime("%Y-%m-%d"),
-    "results": analysis_today
+    "results": analysis_today   # ←そのままlistを入れる
 })
 
 with open(history_file, "w", encoding="utf-8") as f:
